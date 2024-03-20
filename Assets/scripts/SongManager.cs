@@ -7,6 +7,7 @@ using System.IO;
 using UnityEngine.Networking;
 using System;
 using UnityEditor;
+using System.Threading.Tasks;
 
 public class SongManager : MonoBehaviour
 {
@@ -44,7 +45,7 @@ public class SongManager : MonoBehaviour
 
     public static MidiFile midiFile;
     // Start is called before the first frame update
-    void Start()
+    async void Start()
     {
         Instance = this;
         if (Application.streamingAssetsPath.StartsWith("http://") || Application.streamingAssetsPath.StartsWith("https://"))
@@ -53,7 +54,7 @@ public class SongManager : MonoBehaviour
         }
         else
         {
-            ReadFromFile();
+            await ReadFromFile();
         }
     }
 
@@ -79,23 +80,22 @@ public class SongManager : MonoBehaviour
         }
     }
 
-    private void ReadFromFile()
+    private async Task ReadFromFile()
     {
         string songFolder = PlayerPrefs.GetString("song-folder");
         fileLocation = "Assets/Audio/" + songFolder +"/notes.mid";
         midiFile = MidiFile.Read(fileLocation);
         Debug.Log(fileLocation);
 
-        Import(songFolder);
+        await Import(songFolder);
         GetDataFromMidi();
     }
 
-    void Import(string songFolder)
+    async Task Import(string songFolder)
     {
-        #if UNITY_EDITOR
-        string guitarPath = "Assets/Audio/" + songFolder +"/guitar.ogg";
-        string songPath = "Assets/Audio/" + songFolder +"/song.ogg";
-        string rhythmPath = "Assets/Audio/" + songFolder +"/rhythm.ogg";
+        string guitarPath = Directory.GetCurrentDirectory() + "/Assets/Audio/" + songFolder + "/guitar.ogg";
+        string songPath = Directory.GetCurrentDirectory() + "/Assets/Audio/" + songFolder + "/song.ogg";
+        string rhythmPath = Directory.GetCurrentDirectory() + "/Assets/Audio/" + songFolder + "/rhythm.ogg";
 
         if (!File.Exists(guitarPath))
         {
@@ -112,14 +112,10 @@ public class SongManager : MonoBehaviour
             Debug.LogError("File not found: " + rhythmPath);
             return;
         } */
-
-        AssetDatabase.ImportAsset(guitarPath, ImportAssetOptions.ForceUpdate);
-        AssetDatabase.ImportAsset(songPath, ImportAssetOptions.ForceUpdate);
-        AssetDatabase.ImportAsset(rhythmPath, ImportAssetOptions.ForceUpdate);
-
-        AudioClip songClip = AssetDatabase.LoadAssetAtPath<AudioClip>(guitarPath);
-        AudioClip songClip2 = AssetDatabase.LoadAssetAtPath<AudioClip>(songPath);
-        AudioClip songClip3 = AssetDatabase.LoadAssetAtPath<AudioClip>(rhythmPath);
+        
+        AudioClip songClip = await LoadClip(guitarPath);
+        AudioClip songClip2 = await LoadClip(songPath);
+        AudioClip songClip3 = await LoadClip(rhythmPath);
 
         if (songClip != null)
         {
@@ -135,9 +131,34 @@ public class SongManager : MonoBehaviour
         {
             Debug.LogError("Failed to import song");
         }
-        #else
-        Debug.LogError("This script can only be used in the Unity Editor");
-        #endif
+
+        return;
+    }
+
+    async Task<AudioClip> LoadClip(string path)
+    {
+        AudioClip clip = null;
+        using (UnityWebRequest uwr = UnityWebRequestMultimedia.GetAudioClip(path, AudioType.OGGVORBIS))
+        {
+            uwr.SendWebRequest();
+            // wrap tasks in try/catch, otherwise it'll fail silently
+            try
+            {
+                while (!uwr.isDone) await Task.Delay(5);
+
+                if (uwr.isNetworkError || uwr.isHttpError) Debug.Log($"{uwr.error}");
+                else
+                {
+                    clip = DownloadHandlerAudioClip.GetContent(uwr);
+                }
+            }
+            catch (Exception err)
+            {
+                Debug.Log($"{err.Message}, {err.StackTrace}");
+            }
+        }
+
+        return clip;
     }
 
     public void GetDataFromMidi()
@@ -153,8 +174,8 @@ public class SongManager : MonoBehaviour
         Instance.audioSource.Play();
 
         Instance.audioSources[0].Play();
-        //Instance.audioSources[1].Play();
-        //Instance.audioSources[2].Play();
+        //if (Instance.audioSources[1]) Instance.audioSources[1].Play();
+        //if (Instance.audioSources[2]) Instance.audioSources[2].Play();
 
         played = 1;
     }

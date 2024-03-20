@@ -33,6 +33,7 @@ public class SongSelector : MonoBehaviour
     {
         // Update selected folder and populate song dropdown with songs from the selected folder
         selectedFolder = folderDropdown.options[folderDropdown.value].text;
+        Debug.Log(selectedFolder);
         string[] songs = Directory.GetFiles(selectedFolder, "*.mp3");
         songDropdown.ClearOptions();
         songDropdown.AddOptions(new List<string>(songs));

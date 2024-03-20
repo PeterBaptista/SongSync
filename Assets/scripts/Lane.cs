@@ -4,7 +4,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public class Lane : MonoBehaviour
@@ -159,7 +158,6 @@ public class Lane : MonoBehaviour
             if (timeStamp + marginOfError <= audioTime && !isInLongNote)
             {
                 Miss();
-                print($"Missed {inputIndex} note");
                 inputIndex++;
             }
 
